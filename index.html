@@ -1,0 +1,85 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RecuPro – Gestion des reçus</title><link rel="manifest" href="manifest.json"><link rel="icon" href="icon.svg"><meta name="theme-color" content="#1f4e3d">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+</head><body>
+<header><div class="brand"><img src="icon.svg" alt="" width="36" height="36"><div><b>RecuPro</b><small>Reçus de chantier · TPS · TVQ · HST</small></div></div>
+<button id="installBtn" class="btn ghost" hidden>⬇ Installer l'app</button></header>
+<nav id="tabs">
+<button data-t="accueil" class="on">🏠<span>Accueil</span></button>
+<button data-t="scan">📷<span>Scanner</span></button>
+<button data-t="courriel">✉️<span>Courriels</span></button>
+<button data-t="lots">📁<span>Lots</span></button>
+<button data-t="donnees">📊<span>Données</span></button>
+<button data-t="reglages">⚙️<span>Réglages</span></button>
+</nav>
+<main>
+<section id="accueil" class="tab on">
+ <div class="kpis" id="kpis"></div>
+ <div class="grid2">
+  <div class="card big green" data-go="scan">📷<h3>Scanner un reçu</h3><p>Photo ou fichier (image, PDF)</p></div>
+  <div class="card big blue" data-go="courriel">✉️<h3>Chercher dans mes courriels</h3><p>Gmail, plusieurs comptes</p></div>
+  <div class="card big amber" data-go="lots">🤖<h3>Analyser avec l'IA</h3><p>Extraire les données d'un lot</p></div>
+  <div class="card big slate" data-go="donnees">📊<h3>Voir / exporter</h3><p>Tableau et fichier Excel</p></div>
+ </div>
+ <div class="box"><h4>Comment ça marche</h4><ol class="steps"><li><b>1</b> Ajoutez des reçus (photo, fichier ou courriel). Ils vont dans un <b>lot</b> nommé par date et heure, ex. <code>2026-10-24_14-35-02</code>.</li><li><b>2</b> Lancez l'analyse IA du lot.</li><li><b>3</b> Vérifiez, corrigez, puis exportez vers Excel.</li></ol></div>
+</section>
+
+<section id="scan" class="tab">
+ <div class="box"><h4>📁 Lot actif : <span class="curLot"></span></h4><button class="btn ghost" id="newLot">➕ Nouveau lot</button></div>
+ <div class="grid2">
+  <label class="card big green">📷<h3>Prendre une photo</h3><p>Caméra du téléphone ou tablette</p><input type="file" accept="image/*" capture="environment" id="camIn" hidden></label>
+  <label class="card big slate">🗂️<h3>Importer des fichiers</h3><p>JPG, PNG, PDF, EML (plusieurs)</p><input type="file" accept="image/*,application/pdf,.eml,.html,.txt" multiple id="fileIn" hidden></label>
+ </div>
+ <div class="drop" id="drop">Glissez-déposez vos reçus ici</div>
+ <div class="box"><h4>Projet / job par défaut pour ce lot</h4><input id="defProj" placeholder="Ex. : Job 2026-041 – Salle de bain Tremblay"></div>
+ <div class="thumbs" id="thumbs"></div>
+</section>
+
+<section id="courriel" class="tab">
+ <div class="box"><h4>✉️ Comptes Gmail</h4><p class="muted">Chaque compte est connecté de façon sécurisée par Google (lecture seule). Requiert un « ID client OAuth » dans Réglages.</p>
+ <div id="accts"></div><button class="btn" id="addAcct">➕ Connecter un compte Gmail</button></div>
+ <div class="box"><h4>🔎 Recherche</h4>
+  <div class="row"><label>Du <input type="date" id="dFrom"></label><label>Au <input type="date" id="dTo"></label></div>
+  <label>Mots-clés<input id="q" value="reçu OR receipt OR facture OR invoice OR commande OR order"></label>
+  <label class="chk"><input type="checkbox" id="onlyAtt"> Seulement les courriels avec pièce jointe</label>
+  <button class="btn green" id="searchMail">🔎 Chercher dans tous les comptes</button>
+ </div>
+ <div id="mailRes"></div>
+ <div class="box muted">Autres fournisseurs (Outlook, Hotmail, Vidéotron…) : enregistrez le courriel en .eml ou PDF et importez-le dans l'onglet Scanner.</div>
+</section>
+
+<section id="lots" class="tab"><div id="lotList"></div></section>
+
+<section id="donnees" class="tab">
+ <div class="box row wrap">
+  <input id="fTxt" placeholder="🔎 Fournisseur, projet, n° reçu…">
+  <select id="fCat"><option value="">Toutes catégories</option></select>
+  <select id="fProj"><option value="">Tous projets</option></select>
+  <button class="btn green" id="expX">⬇ Excel</button>
+  <label class="btn ghost">⬆ Importer Excel existant<input type="file" id="impX" accept=".xlsx,.xls,.csv" hidden></label>
+ </div>
+ <div class="kpis" id="kpis2"></div>
+ <div class="tblwrap"><table id="tbl"><thead><tr><th>Date</th><th>Fournisseur</th><th>N° reçu</th><th>Catégorie</th><th>Avant taxes</th><th>TPS</th><th>TVQ</th><th>HST</th><th>Total</th><th>Paiement</th><th>Projet</th><th>Fichier</th><th>Lot</th><th></th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section id="reglages" class="tab">
+ <div class="box"><h4>🤖 Intelligence artificielle</h4>
+  <label>Fournisseur IA<select id="aiProv"><option value="openai">OpenAI (gpt-4o-mini)</option><option value="gemini">Google Gemini (2.5 Flash)</option></select></label>
+  <label>Clé API<input id="aiKey" type="password" placeholder="sk-… ou AIza…"></label>
+  <label>Modèle (optionnel)<input id="aiModel" placeholder="gpt-4o-mini / gemini-2.5-flash"></label>
+  <p class="muted">La clé reste uniquement sur cet appareil.</p></div>
+ <div class="box"><h4>✉️ Gmail</h4><label>ID client OAuth Google<input id="gClient" placeholder="xxxx.apps.googleusercontent.com"></label>
+  <p class="muted">Créez-le gratuitement sur console.cloud.google.com → API Gmail → Identifiants → Application Web, en ajoutant l'adresse de cette app comme origine autorisée.</p></div>
+ <div class="box"><h4>🏷️ Catégories</h4><textarea id="cats" rows="3"></textarea></div>
+ <div class="box"><h4>💾 Dossier sur l'ordinateur (Windows)</h4><p class="muted">Optionnel : chaque lot sera aussi enregistré comme un vrai répertoire (ex. Documents\Reçus\2026-10-24_14-35-02).</p>
+  <button class="btn" id="pickDir">📂 Choisir le dossier racine</button> <span id="dirName" class="muted"></span></div>
+ <div class="box"><h4>🗄️ Sauvegarde</h4><button class="btn ghost" id="backup">⬇ Sauvegarde complète (ZIP)</button> <button class="btn danger" id="wipe">🗑 Tout effacer</button></div>
+ <button class="btn green" id="saveSet">✔ Enregistrer les réglages</button>
+</section>
+</main>
+<div id="toast"></div>
+<dialog id="viewer"><div id="vbody"></div><button class="btn" onclick="viewer.close()">Fermer</button></dialog>
+<script src="app.js"></script></body></html>
